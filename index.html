@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HETU SafePlay</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: system-ui, -apple-system, sans-serif;
+            background: #0f0f12;
+            color: #e4e4e7;
+        }
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 400;
+            margin-bottom: 1.5rem;
+            letter-spacing: 0.02em;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+        }
+        input {
+            width: 220px;
+            padding: 0.75rem 1rem;
+            font-size: 1rem;
+            border: 1px solid #3f3f46;
+            border-radius: 6px;
+            background: #18181b;
+            color: #e4e4e7;
+        }
+        input:focus {
+            outline: none;
+            border-color: #52525b;
+        }
+        input::placeholder {
+            color: #71717a;
+        }
+        button {
+            padding: 0.6rem 1.25rem;
+            font-size: 0.9rem;
+            border: none;
+            border-radius: 6px;
+            background: #3f3f46;
+            color: #e4e4e7;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #52525b;
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        #message {
+            margin-top: 1rem;
+            min-height: 1.5rem;
+            font-size: 0.9rem;
+        }
+        #message.success { color: #4ade80; }
+        #message.error { color: #f87171; }
+    </style>
+</head>
+<body>
+    <h1>dont worry its safe...</h1>
+    <form id="hetu-form">
+        <input
+            type="text"
+            id="hetu-input"
+            name="hetu"
+            placeholder="010190-123A"
+            autocomplete="off"
+            maxlength="11"
+        />
+        <button type="submit" id="submit-btn">Lähetä</button>
+    </form>
+    <div id="message" role="status"></div>
+
+    <script>
+        const form = document.getElementById('hetu-form');
+        const input = document.getElementById('hetu-input');
+        const messageEl = document.getElementById('message');
+        const submitBtn = document.getElementById('submit-btn');
+
+        function setMessage(text, isError = false) {
+            messageEl.textContent = text;
+            messageEl.className = isError ? 'error' : 'success';
+        }
+
+        function clearMessage() {
+            messageEl.textContent = '';
+            messageEl.className = '';
+        }
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            clearMessage();
+            const hetu = input.value.trim();
+            if (!hetu) {
+                setMessage('Syötä henkilötunnus', true);
+                return;
+            }
+
+            submitBtn.disabled = true;
+            try {
+                const res = await fetch('/api/hetu', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ hetu }),
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    setMessage(data.message || 'Tallennettu');
+                    input.value = '';
+                } else if (res.status === 422) {
+                    setMessage('Virheellinen henkilötunnus', true);
+                } else if (res.status === 429) {
+                    setMessage('Liian monta pyyntöä. Odota hetki.', true);
+                } else if (res.status >= 500) {
+                    setMessage('Palvelinvirhe. Yritä myöhemmin uudelleen.', true);
+                } else {
+                    setMessage('Tuntematon virhe', true);
+                }
+            } catch (err) {
+                setMessage('Verkkovirhe. Tarkista yhteys.', true);
+            } finally {
+                submitBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
